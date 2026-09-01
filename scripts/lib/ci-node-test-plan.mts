@@ -1652,12 +1652,15 @@ function createToolingSplitShards(): NodeTestSplitShard[] {
       (mode ? VITEST_PRETEST_BUILD_SECONDS[mode] : 0)
     );
   };
+  // Seed mandatory capacity before cost-only ties: cheap file additions must not
+  // strand the large-runner compiler fixture in an underfilled hosted child.
   return [
     ...createStripedBatches(
       files,
       COMPACT_TOOLING_NODE_TEST_GROUPS,
       (file) => toolingBatchWeight([file]),
       toolingBatchWeight,
+      isLargeRunnerTestFile,
     ).map((includePatterns, index) => ({
       shardName: `core-tooling-${index + 1}`,
       configs: [TOOLING_CONFIG],
@@ -2103,6 +2106,12 @@ export function createVitestCacheWarmGroups(): Array<{
   ];
 }
 
+function isLargeRunnerTestFile(file: string): boolean {
+  // The full-build compiler fixture must pass the real 4352MB heap guard even
+  // after earlier tooling tests have retained their module graphs.
+  return file === "test/scripts/write-unified-entry-dts.test.ts";
+}
+
 function resolveCiNodeTestRunner(shard: NodeTestShard, compactProfile?: string): string {
   if (
     compactProfile !== undefined &&
@@ -2117,10 +2126,8 @@ function resolveCiNodeTestRunner(shard: NodeTestShard, compactProfile?: string):
   if (shard.runner !== DEFAULT_NODE_TEST_RUNNER) {
     return shard.runner;
   }
-  // The full-build compiler fixture must pass the real 4352MB heap guard even
-  // after earlier tooling tests have retained their module graphs.
   return KEEP_LARGE_NODE_TEST_RUNNER.has(shard.shardName) ||
-    shard.includePatterns?.includes("test/scripts/write-unified-entry-dts.test.ts")
+    shard.includePatterns?.some(isLargeRunnerTestFile)
     ? DEFAULT_NODE_TEST_RUNNER
     : BUNDLED_NODE_TEST_RUNNER;
 }
@@ -2142,14 +2149,15 @@ function compareFullNodeTestAdmissionOrder(a: NodeTestShard, b: NodeTestShard): 
   );
 }
 
-// Deterministic cost-aware batching (greedy LPT): heaviest values first, each
-// into the currently lightest batch. Round-robin by discovery order can pack
+// Deterministic LPT within priority classes: heavier values fill the lightest
+// batch. Priority never changes their costs; round-robin discovery can pack
 // one whale next to another and leave sibling batches much lighter.
 function createStripedBatches<T>(
   values: T[],
   batchCount: number,
   weightForValue: (value: T) => number,
   weightForBatch?: (values: T[]) => number,
+  prioritizeValue?: (value: T) => boolean,
 ): T[][] {
   if (batchCount < 1) {
     throw new Error("striped batch count must be positive");
@@ -2158,8 +2166,9 @@ function createStripedBatches<T>(
     index,
     value,
     weight: weightForValue(value),
+    priority: prioritizeValue?.(value) ? 1 : 0,
   }));
-  entries.sort((a, b) => b.weight - a.weight || a.index - b.index);
+  entries.sort((a, b) => b.priority - a.priority || b.weight - a.weight || a.index - b.index);
   const batches: Array<{
     totalWeight: number;
     entries: Array<{ index: number; value: T; weight: number }>;
