@@ -1,5 +1,6 @@
 import { expectDefined } from "@openclaw/normalization-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createDeferred } from "../../test/helpers/promise.js";
 import { buildPluginCapabilitySummary, computeDeclaredSurfaceHash } from "./capability-summary.js";
 import {
   configSnapshot,
@@ -14,7 +15,7 @@ const mocks = vi.hoisted(() => ({
   metadata: vi.fn(),
   npmInstall: vi.fn(),
   officialCatalog: vi.fn(),
-  persistInstall: vi.fn(),
+  persistInstall: vi.fn<typeof import("./install-persistence.js").persistPluginInstall>(),
   preflight: vi.fn(),
   readConfig: vi.fn(),
   refreshRegistry: vi.fn(),
@@ -37,7 +38,7 @@ vi.mock("../config/config.js", () => ({
 }));
 
 vi.mock("./install-persistence.js", () => ({
-  persistPluginInstall: (...args: unknown[]) => mocks.persistInstall(...args),
+  persistPluginInstall: mocks.persistInstall,
   resolveInstallConfigMutationPreflights: (...args: unknown[]) => mocks.preflight(...args),
   selectInstallMutationWriteOptions: (writeOptions: unknown) =>
     mocks.selectWriteOptions(writeOptions),
@@ -174,7 +175,7 @@ describe("managed plugin installation", () => {
       },
     ]);
     mockClawHubInstall("bluebubbles", "@openclaw/bluebubbles");
-    mocks.persistInstall.mockResolvedValue({});
+    mocks.persistInstall.mockResolvedValue({ config: {}, warnings: [] });
     mocks.refreshRegistry.mockResolvedValue(undefined);
     mocks.metadata.mockReturnValue(
       metadataSnapshot({
@@ -239,7 +240,7 @@ describe("managed plugin installation", () => {
     mocks.readConfig.mockResolvedValue(configSnapshot());
     mockHostedOfficialCatalog([hostedFeedDiffsEntry]);
     mockClawHubInstall("diffs", "@openclaw/diffs");
-    mocks.persistInstall.mockResolvedValue({});
+    mocks.persistInstall.mockResolvedValue({ config: {}, warnings: [] });
     mocks.metadata.mockReturnValue(
       metadataSnapshot({ enabled: true, id: "diffs", name: "Diffs", origin: "global" }),
     );
@@ -309,7 +310,7 @@ describe("managed plugin installation", () => {
         },
       };
     });
-    mocks.persistInstall.mockResolvedValue({});
+    mocks.persistInstall.mockResolvedValue({ config: {}, warnings: [] });
     mocks.metadata.mockReturnValue(
       metadataSnapshot({ enabled: true, id: "diffs", name: "Diffs", origin: "global" }),
     );
@@ -326,13 +327,17 @@ describe("managed plugin installation", () => {
   });
 
   it("serializes install and enable mutations through one Gateway lock", async () => {
-    let releasePersist: ((config: Record<string, unknown>) => void) | undefined;
-    const heldPersist = new Promise<Record<string, unknown>>((resolve) => {
-      releasePersist = resolve;
-    });
+    const enteredPersist = createDeferred();
+    const heldPersist =
+      createDeferred<
+        Awaited<ReturnType<typeof import("./install-persistence.js").persistPluginInstall>>
+      >();
     mocks.readConfig.mockResolvedValue(configSnapshot());
     mockClawHubInstall("demo", "community/demo");
-    mocks.persistInstall.mockReturnValueOnce(heldPersist);
+    mocks.persistInstall.mockImplementationOnce(() => {
+      enteredPersist.resolve();
+      return heldPersist.promise;
+    });
     mocks.replaceConfig.mockResolvedValue({});
     mocks.refreshRegistry.mockResolvedValue(undefined);
     mocks.metadata
@@ -348,12 +353,16 @@ describe("managed plugin installation", () => {
       },
       env: {},
     });
-    await vi.waitFor(() => expect(mocks.persistInstall).toHaveBeenCalledTimes(1));
+    await Promise.race([enteredPersist.promise, install]);
     const enable = setManagedPluginEnabled({ pluginId: "workboard", enabled: true, env: {} });
-    await Promise.resolve();
-
-    expect(mocks.readConfig).toHaveBeenCalledTimes(1);
-    releasePersist?.({});
+    try {
+      await Promise.resolve();
+      expect(mocks.persistInstall).toHaveBeenCalledOnce();
+      expect(mocks.readConfig).toHaveBeenCalledTimes(1);
+    } finally {
+      heldPersist.resolve({ config: {}, warnings: [] });
+      await Promise.allSettled([install, enable]);
+    }
     await install;
     await enable;
     expect(mocks.readConfig).toHaveBeenCalledTimes(2);

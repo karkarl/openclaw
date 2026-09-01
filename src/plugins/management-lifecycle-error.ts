@@ -4,6 +4,7 @@ import type { InstallPolicyWarningDetails } from "./install-security-scan.types.
 export class ManagedPluginLifecycleError extends Error {
   readonly kind: "invalid-request" | "unavailable";
   readonly code?: string;
+  readonly installRejected?: boolean;
   readonly version?: string;
   readonly warning?: string;
   readonly installPolicyWarning?: InstallPolicyWarningDetails;
@@ -14,6 +15,7 @@ export class ManagedPluginLifecycleError extends Error {
     details?: {
       kind?: "invalid-request" | "unavailable";
       code?: string;
+      installRejected?: boolean;
       version?: string;
       warning?: string;
       installPolicyWarning?: InstallPolicyWarningDetails;
@@ -25,6 +27,7 @@ export class ManagedPluginLifecycleError extends Error {
     this.name = "ManagedPluginLifecycleError";
     this.kind = details?.kind ?? "invalid-request";
     this.code = details?.code;
+    this.installRejected = details?.installRejected;
     this.version = details?.version;
     this.warning = details?.warning;
     this.installPolicyWarning = details?.installPolicyWarning;

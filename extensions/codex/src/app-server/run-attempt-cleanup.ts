@@ -79,13 +79,18 @@ export async function cleanupCodexAttempt(
       });
     }
     await runCleanupStep("codex-trajectory-flush", () => trajectoryRecorder?.flush());
+    // Ordinary refresh rebuilds history from the committed host transcript.
+    // Supervision owns its native thread; finalization carries the missing replies.
+    const pluginRuntimeRefreshing = params.pluginRuntimeRefreshPending?.() === true;
     const retainLiveIncognitoThread =
+      !pluginRuntimeRefreshing &&
       (terminalState.turnSucceeded ||
         (state.permissionChangeRestart === "confirmed" && !params.abortSignal?.aborted)) &&
       isIncognitoSessionKey(params.sessionKey);
     // Native-preserved and supervision threads have separate ownership and can
     // never enter the ordinary persistent warm-thread cache.
     const retainedPersistentThread =
+      !pluginRuntimeRefreshing &&
       terminalState.turnSucceeded &&
       !isIncognitoSessionKey(params.sessionKey) &&
       params.cleanupBundleMcpOnRunEnd !== true &&
@@ -119,7 +124,9 @@ export async function cleanupCodexAttempt(
     // must retain their own subscriptions instead of evicting one another.
     const retainLiveThread = retainLiveIncognitoThread || retainedPersistentThread;
     const bindingReleased =
-      isIncognitoSessionKey(params.sessionKey) && !retainLiveIncognitoThread
+      resourceState.thread.connectionScope !== "supervision" &&
+      (pluginRuntimeRefreshing ||
+        (isIncognitoSessionKey(params.sessionKey) && !retainLiveIncognitoThread))
         ? await bindingStore.mutate(bindingIdentity, {
             kind: "clear",
             threadId: resourceState.thread.threadId,

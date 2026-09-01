@@ -8,11 +8,11 @@ import type { OpenClawConfig } from "../config/config.js";
 import { hashConfigIncludeRaw } from "../config/includes.js";
 import type { ConfigWriteOptions } from "../config/io.js";
 import type { ConfigFileSnapshot } from "../config/types.openclaw.js";
+import { loadConfigForInstall } from "../plugins/install-config.js";
 import {
   resolvePluginInstallRequestContext,
   type PluginInstallRequestContext,
-} from "./plugin-install-config-policy.js";
-import { loadConfigForInstall } from "./plugins-install-config.js";
+} from "../plugins/install-request-context.js";
 
 const hoisted = vi.hoisted(() => ({
   assertConfigPathForWriteMock: vi.fn(),
@@ -55,7 +55,7 @@ vi.mock("../plugins/installed-plugin-index-records.js", async (importOriginal) =
   };
 });
 
-vi.mock("./plugins-location-bridges.js", () => ({
+vi.mock("../plugins/location-bridges.js", () => ({
   listPersistedBundledPluginRecoveryLocations: () =>
     listPersistedBundledPluginRecoveryLocationsMock(),
 }));

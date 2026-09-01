@@ -33,7 +33,6 @@ import {
   loadPluginManifestRegistryMock,
   readConfigFileSnapshotMock,
   readConfigFileSnapshotForWriteMock,
-  parseClawHubPluginSpecMock,
   promptYesNoMock,
   reportClawHubPluginInstallTelemetryMock,
   recordHookInstallMock,
@@ -262,19 +261,17 @@ function primeSuccessfulPluginPersistence(pluginId = "demo") {
 
 function primeSuccessfulClawHubPluginInstall(
   params: {
-    explicitVersion?: boolean;
+    pluginId?: string;
+    packageName?: string;
     trust?: Parameters<typeof createClawHubInstallResult>[0]["trust"];
   } = {},
 ) {
-  const result = primeSuccessfulPluginPersistence("demo");
-  parseClawHubPluginSpecMock.mockReturnValue({
-    name: "demo",
-    ...(params.explicitVersion ? { version: "1.2.3" } : {}),
-  });
+  const pluginId = params.pluginId ?? "demo";
+  const result = primeSuccessfulPluginPersistence(pluginId);
   installPluginFromClawHubMock.mockResolvedValue(
     createClawHubInstallResult({
-      pluginId: "demo",
-      packageName: "demo",
+      pluginId,
+      packageName: params.packageName ?? pluginId,
       version: "1.2.3",
       channel: "official",
       ...(params.trust ? { trust: params.trust } : {}),
@@ -864,7 +861,6 @@ describe("plugins cli install", () => {
       } as OpenClawConfig;
       fs.mkdirSync(localPath);
       primeBlockedPluginConfigMutation();
-      parseClawHubPluginSpecMock.mockReturnValue({ name: "demo-hooks" });
       installPluginFromPathMock.mockResolvedValue({
         ok: false,
         error: "package.json missing openclaw.extensions",
@@ -1099,7 +1095,6 @@ describe("plugins cli install", () => {
       args: ["plugins", "install", "clawhub:demo"],
       installer: installPluginFromClawHubMock,
       setup: () => {
-        parseClawHubPluginSpecMock.mockReturnValue({ name: "demo" });
         installPluginFromClawHubMock.mockResolvedValue(
           createClawHubInstallResult({
             pluginId: "demo",
@@ -1621,8 +1616,10 @@ describe("plugins cli install", () => {
   );
 
   it("installs the beta artifact for an official ClawHub plugin on a beta gateway", async () => {
-    primeSuccessfulClawHubPluginInstall();
-    parseClawHubPluginSpecMock.mockReturnValue({ name: "@openclaw/brave-plugin" });
+    primeSuccessfulClawHubPluginInstall({
+      pluginId: "brave",
+      packageName: "@openclaw/brave-plugin",
+    });
     pluginCliConfigMock.mockReturnValue({
       ...createEmptyPluginConfig(),
       update: { channel: "beta" },
@@ -1638,8 +1635,10 @@ describe("plugins cli install", () => {
   });
 
   it("does not install a stable ClawHub release when no beta release exists", async () => {
-    primeSuccessfulClawHubPluginInstall();
-    parseClawHubPluginSpecMock.mockReturnValue({ name: "@openclaw/brave-plugin" });
+    primeSuccessfulClawHubPluginInstall({
+      pluginId: "brave",
+      packageName: "@openclaw/brave-plugin",
+    });
     pluginCliConfigMock.mockReturnValue({
       ...createEmptyPluginConfig(),
       update: { channel: "beta" },
@@ -1783,7 +1782,6 @@ describe("plugins cli install", () => {
 
   it("prints blocked ClawHub download failures when no trust warning was emitted", async () => {
     pluginCliConfigMock.mockReturnValue(createEmptyPluginConfig());
-    parseClawHubPluginSpecMock.mockReturnValue({ name: "demo" });
     installPluginFromClawHubMock.mockResolvedValue({
       ok: false,
       code: "clawhub_download_blocked",
@@ -1832,6 +1830,7 @@ describe("plugins cli install", () => {
         properties: {
           token: {
             type: "string",
+            default: "fixture-default",
           },
         },
       },
@@ -1942,7 +1941,7 @@ describe("plugins cli install", () => {
   });
 
   it("keeps explicit ClawHub versions pinned in install records", async () => {
-    primeSuccessfulClawHubPluginInstall({ explicitVersion: true });
+    primeSuccessfulClawHubPluginInstall();
 
     await runCapabilityAcceptedPluginsInstallCommand(["plugins", "install", "clawhub:demo@1.2.3"]);
 
@@ -2258,7 +2257,8 @@ describe("plugins cli install", () => {
       const { lookup } = params as {
         lookup: { kind: "pluginId" | "npmSpec"; value: string };
       };
-      return lookup.kind === "npmSpec" && lookup.value === "@openclaw/discord"
+      return (lookup.kind === "npmSpec" && lookup.value === "@openclaw/discord") ||
+        (lookup.kind === "pluginId" && lookup.value === "discord")
         ? {
             pluginId: "discord",
             localPath: bundledPath,
@@ -2284,7 +2284,7 @@ describe("plugins cli install", () => {
     });
     const record = persistedInstallRecord("discord");
     expect(record.source).toBe("path");
-    expect(record.spec).toBe("@openclaw/discord@2026.5.20");
+    expect(record.spec).toBe("discord");
     expect(record.sourcePath).toBe(bundledPath);
     expect(record.installPath).toBe(bundledPath);
     expect(runtimeLogsContain("ships with the current OpenClaw build")).toBe(true);
@@ -2939,7 +2939,6 @@ describe("plugins cli install", () => {
   });
 
   it("does not fall back to npm when explicit ClawHub rejects a real package", async () => {
-    parseClawHubPluginSpecMock.mockReturnValue({ name: "demo" });
     installPluginFromClawHubMock.mockResolvedValue({
       ok: false,
       error: 'Use "openclaw skills install demo" instead.',

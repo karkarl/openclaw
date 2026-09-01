@@ -211,7 +211,7 @@ describe("bundled plugin public surface loader", () => {
     });
   });
 
-  it("loads import-only dependencies under tsx and shares source artifacts for one cache generation", () => {
+  it("loads import-only dependencies under tsx and keeps uncaptured source modules process-stable", () => {
     const tempRoot = tempDirs.make("openclaw-public-surface-source-");
     const bundledPluginsDir = path.join(tempRoot, "extensions");
     const pluginRoot = path.join(bundledPluginsDir, "demo");
@@ -236,11 +236,9 @@ describe("bundled plugin public surface loader", () => {
       `
         import assert from "node:assert/strict";
         import fs from "node:fs";
-        import { createRequire } from "node:module";
         import { loadBundledPluginPublicArtifactModuleSync, loadPluginPublicArtifactModuleSync } from ${moduleUrl("src/plugins/public-surface-loader.ts")};
         import { loadFacadeModuleAtLocationSync } from ${moduleUrl("src/plugin-sdk/facade-loader.ts")};
         import { clearPluginMetadataLifecycleCaches } from ${moduleUrl("src/plugins/plugin-metadata-lifecycle.ts")};
-        assert.equal(typeof createRequire(import.meta.url).extensions[".ts"], "function");
         const load = () => loadBundledPluginPublicArtifactModuleSync({ dirName: "demo", artifactBasename: "secret-contract-api.js" });
         const first = load();
         assert.equal(first.marker, "original");
@@ -252,7 +250,7 @@ describe("bundled plugin public surface loader", () => {
         clearPluginMetadataLifecycleCaches();
         const replacement = load();
         assert.notEqual(replacement, first);
-        assert.equal(replacement.marker, "replacement");
+        assert.equal(replacement.marker, "original");
         assert.equal(replacement.shared, first.shared);
         console.log("source artifact import, identity, and lifecycle verified");
       `,
@@ -275,10 +273,21 @@ describe("bundled plugin public surface loader", () => {
         },
       },
     );
-    expect(result.error).toBeUndefined();
-    expect(result.stderr).toBe("");
-    expect(result.status).toBe(0);
-    expect(result.stdout.trim()).toBe("source artifact import, identity, and lifecycle verified");
+    expect({
+      error: result.error,
+      status: result.status,
+      signal: result.signal,
+      stderr: result.stderr,
+      stdout: result.stdout,
+    }).toEqual({
+      error: undefined,
+      status: 0,
+      signal: null,
+      stderr: "",
+      stdout: expect.stringMatching(
+        /^\s*source artifact import, identity, and lifecycle verified\s*$/,
+      ),
+    });
   });
 
   it("keeps bundled dist public artifacts on the native path", async () => {
@@ -416,7 +425,7 @@ describe("bundled plugin public surface loader", () => {
     },
   );
 
-  it("reloads a replaced installed public artifact and its dependencies after plugin metadata changes", async () => {
+  it("keeps uncaptured installed native artifacts process-stable when metadata changes", async () => {
     const publicSurfaceLoader = await importFreshModule<
       typeof import("./public-surface-loader.js")
     >(import.meta.url, "./public-surface-loader.js?scope=installed-artifact-replacement");
@@ -446,7 +455,7 @@ describe("bundled plugin public surface loader", () => {
 
     clearPluginMetadataLifecycleCaches();
 
-    expect(loadArtifact()).toBe("replacement");
+    expect(loadArtifact()).toBe("retired");
   });
 
   it.runIf(process.platform !== "win32")(
