@@ -1,3 +1,4 @@
+import { resolveControlUiLocale } from "../../../../src/shared/control-ui-locale.ts";
 import type { TranslationMap } from "./types.ts";
 
 type LocaleModule = Record<string, TranslationMap>;
@@ -38,23 +39,7 @@ export function isSupportedLocale(value: string | null | undefined): value is Lo
 }
 
 export function resolveNavigatorLocale(browserLanguage: string): Locale {
-  const navLang = browserLanguage.toLowerCase();
-  if (navLang.startsWith("zh")) {
-    const [, ...subtags] = navLang.split("-");
-    if (subtags.includes("hant")) {
-      return "zh-TW";
-    }
-    if (subtags.includes("hans")) {
-      return "zh-CN";
-    }
-    return subtags.some((subtag) => subtag === "tw" || subtag === "hk" || subtag === "mo")
-      ? "zh-TW"
-      : "zh-CN";
-  }
-  return (
-    LAZY_LOCALES.find((locale) => navLang.startsWith(locale.split("-")[0]!.toLowerCase())) ??
-    DEFAULT_LOCALE
-  );
+  return resolveControlUiLocale(browserLanguage, SUPPORTED_LOCALES, DEFAULT_LOCALE);
 }
 
 export async function loadLazyLocaleTranslation(locale: Locale): Promise<TranslationMap | null> {

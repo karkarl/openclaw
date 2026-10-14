@@ -61,6 +61,9 @@ export const runtimePostBuildWatchedPaths = [
   "scripts/stage-bundled-plugin-runtime.mts",
   "scripts/windows-cmd-helpers.mjs",
   "scripts/write-build-info.ts",
+  "scripts/write-control-ui-welcome-catalog.mts",
+  "src/shared/control-ui-welcome.ts",
+  "ui/src/i18n",
   "scripts/write-official-channel-catalog.mjs",
   "scripts/write-official-channel-catalog.mts",
   ...cliDiagnosticSources,
@@ -126,6 +129,8 @@ export const hasDirtySourceTree = (deps: RunNodeInputDeps) => {
 export const isRuntimePostBuildRelevantPath = (repoPath: string) => {
   const normalizedPath = normalizePath(repoPath);
   if (
+    normalizedPath === "src/shared/control-ui-welcome.ts" ||
+    normalizedPath.startsWith("ui/src/i18n/") ||
     runtimePostBuildStaticAssetPaths.has(normalizedPath) ||
     cliDiagnosticSources.has(normalizedPath)
   ) {

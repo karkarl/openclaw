@@ -50,6 +50,8 @@ const CORE_GATEWAY_HANDLER_MODULES = {
   conversations: () => import("./conversations.js").then((module) => module.conversationHandlers),
   connect: () => import("./connect.js").then((module) => module.connectHandlers),
   "control-ui": () => import("./control-ui.js").then((module) => module.controlUiHandlers),
+  "control-ui-welcome": () =>
+    import("./control-ui-welcome.js").then((module) => module.controlUiWelcomeHandlers),
   "plugins-control-ui": () =>
     import("./plugins-control-ui.js").then((module) => module.pluginsControlUiHandlers),
   cron: () => import("./cron.js").then((module) => module.cronHandlers),

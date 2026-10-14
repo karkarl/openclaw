@@ -1,13 +1,8 @@
-import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runnerImport, type Alias, type Plugin } from "vite";
-import {
-  loadControlUiTranslationMemory,
-  materializeControlUiLocaleCatalog,
-} from "../../scripts/lib/control-ui-i18n-catalog-values.ts";
+import { loadControlUiLocaleCatalog } from "../../scripts/lib/control-ui-i18n-catalog-values.ts";
 import { CONTROL_UI_LOCALE_ENTRIES } from "../../scripts/lib/control-ui-i18n-config.ts";
-import { flattenTranslations } from "../../scripts/lib/control-ui-i18n-sync-plan.ts";
 import type { TranslationMap } from "../../scripts/lib/control-ui-i18n-sync-plan.ts";
 
 const localeModulePrefix = "virtual:openclaw-control-ui-locale/";
@@ -57,17 +52,8 @@ async function loadControlUiLocaleCatalogPartition(
   sourceCatalog: TranslationMap,
   memoryPath: string,
 ): Promise<ControlUiLocaleCatalogPartition> {
-  // Source PRs omit generated memory until the post-merge refresh runs.
-  // Existing empty or malformed memory stays fatal below so drift cannot hide.
-  if (!existsSync(memoryPath)) {
-    return partitionControlUiLocaleCatalog(sourceCatalog);
-  }
-  const memory = loadControlUiTranslationMemory(memoryPath);
-  if (memory.size === 0) {
-    throw new Error(`Control UI ${locale} translation memory is missing or empty`);
-  }
   return partitionControlUiLocaleCatalog(
-    materializeControlUiLocaleCatalog(flattenTranslations(sourceCatalog), memory),
+    loadControlUiLocaleCatalog(locale, sourceCatalog, memoryPath),
   );
 }
 

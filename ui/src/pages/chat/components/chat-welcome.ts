@@ -1,4 +1,8 @@
 import { html, nothing } from "lit";
+import {
+  CONTROL_UI_WELCOME_RECENT_CHATS_KEY,
+  resolveControlUiWelcomeSuggestions,
+} from "../../../../../src/shared/control-ui-welcome.ts";
 import type {
   AgentsListResult,
   GatewaySessionRow,
@@ -54,13 +58,6 @@ type ChatWelcomeProps = {
   onSend: () => void;
   onOpenSession?: (sessionKey: string) => void;
 };
-
-const WELCOME_SUGGESTION_KEYS = [
-  "chat.welcome.suggestions.whatCanYouDo",
-  "chat.welcome.suggestions.summarizeRecentSessions",
-  "chat.welcome.suggestions.configureChannel",
-  "chat.welcome.suggestions.checkSystemHealth",
-];
 
 const WELCOME_RECENT_SESSION_LIMIT = 5;
 
@@ -134,7 +131,7 @@ function renderWelcomeRecentSessions(
 ) {
   return html`
     <div class="agent-chat__recents">
-      <div class="agent-chat__recents-title">${t("chat.welcome.recentSessions")}</div>
+      <div class="agent-chat__recents-title">${t(CONTROL_UI_WELCOME_RECENT_CHATS_KEY)}</div>
       ${rows.map((row) => {
         const subtitle = resolveSessionWorkSubtitle(row);
         return html`
@@ -154,18 +151,17 @@ function renderWelcomeRecentSessions(
 function renderWelcomeSuggestions(props: Pick<ChatWelcomeProps, "onDraftChange" | "onSend">) {
   return html`
     <div class="agent-chat__suggestions">
-      ${WELCOME_SUGGESTION_KEYS.map((key) => {
-        const text = t(key);
+      ${resolveControlUiWelcomeSuggestions(t).map((suggestion) => {
         return html`
           <button
             type="button"
             class="agent-chat__suggestion"
             @click=${() => {
-              props.onDraftChange(text);
+              props.onDraftChange(suggestion.sendText);
               props.onSend();
             }}
           >
-            ${text}
+            ${suggestion.displayText}
           </button>
         `;
       })}

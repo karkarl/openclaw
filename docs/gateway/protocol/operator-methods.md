@@ -109,6 +109,61 @@ Methods an operator client calls on behalf of a person: helper reads, exec appro
   - Config mode patches `skills.entries.<skillKey>` values such as `enabled`,
     `apiKey`, and `env`.
 
+### Shared welcome content
+
+`controlUi.welcome.get` (`operator.read`) returns the installed Gateway's welcome
+copy for web and native operator clients. It is read-only and does not require
+an agent, session, model provider, or enabled Control UI HTTP server.
+
+Request parameters are `{ "locale": "en" }`, with `locale` optional (default
+`"en"`). When provided, it must be a string of 1 to 128 characters. Unknown
+parameters are rejected with `INVALID_REQUEST`. The response payload is:
+
+```json
+{
+  "version": 1,
+  "requestedLocale": "en",
+  "resolvedLocale": "en",
+  "hint": "Pick where this session works, then say what to do.",
+  "recentChatsLabel": "Recent chats",
+  "suggestions": [
+    {
+      "id": "whatCanYouDo",
+      "displayText": "What can you do?",
+      "sendText": "What can you do?"
+    }
+  ]
+}
+```
+
+The example abbreviates the suggestions array. Render every returned suggestion
+in array order, use `id` for stable identity, and submit `sendText` when selected.
+Treat copy as plain text, not HTML or executable commands. Agent names and avatars
+still come from the existing agent identity methods; recent session rows still
+come from `sessions.list`.
+
+Locale negotiation uses the Control UI's browser-language resolver, including
+regional language matching and Chinese script/region selection. Unsupported
+languages resolve to English. Individual missing or outdated translations fall
+back to current English source, just as they do in the web UI; `resolvedLocale`
+names the selected catalog, not a guarantee that every string is translated.
+The response echoes the requested locale unchanged.
+
+The normal build generates `dist/control-ui-welcome.json` from the web English
+catalog and canonical translation memory. The web renderer and generator share
+the suggestion IDs, order, and translation keys in
+`src/shared/control-ui-welcome.ts`. No native copy list or manual synchronization
+is required. `pnpm ui:welcome:check` verifies the generated artifact against source.
+The Gateway loads it once per process; restart after updating the installation.
+Clients should refetch on a new Gateway connection or locale change and discard
+responses belonging to an old connection or locale.
+
+Clients supporting older Gateways should use method discovery and present the
+catalog as unavailable if the method is absent. An advertised method returning
+`UNAVAILABLE` indicates missing or invalid installed assets: rebuild or reinstall
+OpenClaw and restart the Gateway. Neither condition should silently substitute a
+copied native catalog. Unknown response versions must not be treated as version 1.
+
 ### `models.list` views
 
 `models.list` accepts an optional `view` parameter

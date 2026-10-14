@@ -18,6 +18,7 @@ export * from "./schema/worker-inference.js";
 export * from "./schema/worker-gateway-tool.js";
 export * from "./schema/worker-computer.js";
 export * from "./schema/computer.js";
+export * from "./schema/control-ui-welcome.js";
 export * from "./schema/skill-library.js";
 export * from "./schema/plugin-credentials.js";
 export * from "./schema/web-search.js";

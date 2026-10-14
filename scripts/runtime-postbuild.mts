@@ -36,6 +36,7 @@ import { buildUpdateConfigRuntimeAlias } from "./lib/update-config-runtime-compa
 import { CLI_DIAGNOSTIC_COMPANIONS, writeTextFileIfChanged } from "./runtime-postbuild-shared.mjs";
 import { stageBundledPluginRuntime } from "./stage-bundled-plugin-runtime.mts";
 import { writeBuildInfo } from "./write-build-info.ts";
+import { writeControlUiWelcomeCatalog } from "./write-control-ui-welcome-catalog.mts";
 import { writeOfficialChannelCatalog } from "./write-official-channel-catalog.mts";
 
 type RuntimePostBuildParams = {
@@ -237,6 +238,7 @@ function listCliDiagnosticCompanionOutputs(params: RuntimeFsParams = {}) {
 export function listCoreRuntimePostBuildOutputs(params: RuntimeFsParams = {}) {
   return [
     "dist/build-info.json",
+    "dist/control-ui-welcome.json",
     ...listHookMetadataOutputs(params),
     OFFICIAL_CHANNEL_CATALOG_OUTPUT,
     ...listExportHtmlTemplateOutputs(params),
@@ -578,6 +580,7 @@ export function runRuntimePostBuild(params: RuntimePostBuildParams = {}) {
   runPhase("bundled plugin metadata", () => copyBundledPluginMetadata(phaseParams));
   runPhase("bundled hook metadata", () => copyHookMetadata(phaseParams));
   runPhase("official channel catalog", () => writeOfficialChannelCatalog(phaseParams));
+  runPhase("Control UI welcome catalog", () => writeControlUiWelcomeCatalog(phaseParams));
   runPhase("export HTML assets", () => copyExportHtmlTemplates(phaseParams));
   runPhase("private CLI diagnostic companions", () => {
     for (const output of listCliDiagnosticCompanionOutputs(phaseParams)) {

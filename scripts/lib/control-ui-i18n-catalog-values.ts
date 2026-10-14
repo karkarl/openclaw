@@ -1,6 +1,24 @@
 import { hash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import type { TranslationMap, TranslationMemoryEntry } from "./control-ui-i18n-sync-plan.ts";
+import { flattenTranslations } from "./control-ui-i18n-sync-plan.ts";
+
+export function loadControlUiLocaleCatalog(
+  locale: string,
+  sourceCatalog: TranslationMap,
+  memoryPath: string,
+): TranslationMap {
+  // Source PRs omit generated memory until the post-merge refresh runs.
+  // Existing empty or malformed memory stays fatal so drift cannot hide.
+  if (!existsSync(memoryPath)) {
+    return sourceCatalog;
+  }
+  const memory = loadControlUiTranslationMemory(memoryPath);
+  if (memory.size === 0) {
+    throw new Error(`Control UI ${locale} translation memory is missing or empty`);
+  }
+  return materializeControlUiLocaleCatalog(flattenTranslations(sourceCatalog), memory);
+}
 
 export function hashControlUiTranslationText(text: string): string {
   return hash("sha256", text.trim().split(/\s+/).join(" "), "hex");

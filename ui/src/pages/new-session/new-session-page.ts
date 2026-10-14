@@ -1,6 +1,7 @@
 import { consume } from "@lit/context";
 import { html, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
+import { CONTROL_UI_WELCOME_HINT_KEY } from "../../../../src/shared/control-ui-welcome.ts";
 import { selectApplicationSession } from "../../app/agent-selection.ts";
 import { applicationContext, type ApplicationContext } from "../../app/context.ts";
 import { LazyCustomElementRequestController } from "../../app/lazy-custom-element.ts";
@@ -511,7 +512,9 @@ export class NewSessionPage extends OpenClawLightDomElement {
       assistantName: agent ? normalizeAgentTargetLabel(agent, identity) : "",
       assistantAvatar: resolveAgentTextAvatar(agent ?? {}, identity),
       assistantAvatarUrl: resolveAgentAvatarUrl(agent ?? {}, identity),
-      hint: t(catalog.isTarget(this.data) ? "newSession.nativeTerminalHint" : "newSession.hint"),
+      hint: t(
+        catalog.isTarget(this.data) ? "newSession.nativeTerminalHint" : CONTROL_UI_WELCOME_HINT_KEY,
+      ),
       composer: this.renderDraftBlock(),
       hideSecondaryContent: this.submission.visibility === "incognito",
       fadeSecondaryContent: this.submission.message.trim().length > 0,
