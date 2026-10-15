@@ -207,6 +207,79 @@ npm lock; `parent` identifies the nearest enclosing non-bundled package whose
 rejects missing or unverifiable carriers and preserves the lock payload. The
 Markdown table counts bundled dependencies per package and includes their total.
 
+## Gateway package publication notifications
+
+After a successful npm write, OpenClaw records the exact tarball identity for
+`openclaw` or `@openclaw/gateway-protocol`. A separate, non-blocking job in
+OpenClaw NPM Release sends `repository_dispatch` to
+`openclaw/openclaw-windows-node`. It never runs Windows validation or AI as an
+upstream build check. Ordinary upstream CI does not send notifications.
+
+Each newly published package has its own event. The notification uses that
+package's version, not the Gateway wire-protocol integer or a sibling's version.
+An already-published package reused by a release does not generate a new event.
+A successful protocol publication remains eligible for notification if a later
+core publication fails. Cancellation or a missing publication record can still
+prevent delivery.
+
+The event type is `gateway-protocol-published`. Its `client_payload` has exactly
+these fields:
+
+| Field               | Value                                                                        |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `schema_version`    | `1`                                                                          |
+| `package_name`      | `openclaw` or `@openclaw/gateway-protocol`                                   |
+| `package_version`   | Exact version from the published tarball; no tags, ranges, or build metadata |
+| `package_integrity` | Canonical npm SHA512 SRI matching the published tarball                      |
+| `source_repository` | `openclaw/openclaw`                                                          |
+| `source_commit`     | Full lowercase 40-character release-source Git SHA, not the tooling SHA      |
+
+The sender checks exact-version registry metadata against the recorded tarball
+digest before sending. `source_commit` is the sender-declared release checkout,
+bound to the prepared tarball by the upstream preflight checks. It is not an
+independently verified package-source binding at the receiver. Registry SLSA can
+identify the publication tooling commit instead of the release checkout: both
+2026.9.9 packages attest a `release-publish/*` tooling revision that differs from
+their signed release tag's commit. Never substitute that tooling tree for the
+released Gateway source.
+
+The Windows receiver independently checks exact registry metadata and SLSA
+package-digest/publisher identity, keeping the publisher's workflow SHA separate
+from the declared source commit. GitHub commit existence does not prove that
+source produced the tarball, and attestation field checks do not claim
+cryptographic signature verification. Until an independent package-source
+binding is available, released-source inventory and automated implementation
+handoff remain blocked; read-only schema, main, and local reports retain explicit
+coverage limits. Existing upstream preflight evidence remains the source for
+future independent verification; this notification adds no new attestation system.
+
+A GitHub HTTP 204 confirms dispatch acceptance, not downstream validation or
+activated remediation. Windows nightly monitoring remains reconciliation and an
+early warning for unpublished `main`; runtime npm-`latest` selection and pinning
+policy are unchanged.
+
+To activate the sender, an administrator must create a dedicated GitHub App with
+repository **Contents: write** and the implicit **Metadata: read** permission.
+Install it only on `openclaw/openclaw-windows-node`. `repository_dispatch` needs
+Contents write; Actions write is not required. Set the upstream repository
+Actions variable `GATEWAY_PROTOCOL_NOTIFY_APP_ID` to its App ID and Actions
+secret `GATEWAY_PROTOCOL_NOTIFY_APP_PRIVATE_KEY` to its private key. Restrict
+any organization-level secret to `openclaw/openclaw`. The workflow requests an
+installation token scoped to that single receiver and Contents write, only in
+the notification job; the token action revokes it after the job. Do not reuse
+Windows `COPILOT_GITHUB_TOKEN`, broaden `GITHUB_TOKEN`, or expose sender credentials
+to the npm publish step. The receiver workflow must be on its default branch
+before GitHub can deliver this event.
+
+Missing credentials, registry propagation/readback failures, or rejected and
+ambiguous dispatches produce job warnings and a run summary without rolling back
+npm or failing an otherwise successful release. Notification bookkeeping failure
+also warns without stopping subsequent package publication. There is no automatic
+POST retry. Inspect the notification job and Windows receiver runs before
+recovery; do not republish npm to retry a notification. Nightly reconciliation
+covers missed events. Activation is not proven until an approved publication
+records HTTP 204 and the receiver accepts the matching immutable package identity.
+
 ## Maintainer procedures
 
 Release preparation, publishing commands, approvals, and recovery live in the

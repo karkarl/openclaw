@@ -92,9 +92,29 @@ describe("openclaw npm resume run identity", () => {
     });
   }
 
-  it.each([false, true])(
-    "recovers delayed registry readback only without another failed job: %s",
-    (otherFailure) => {
+  it.each([
+    { otherJob: null, conclusion: "failure", recoverable: true },
+    { otherJob: "unexpected_failure", conclusion: "failure", recoverable: false },
+    { otherJob: "validate_publish_request", conclusion: "failure", recoverable: false },
+    { otherJob: "publish_openclaw_npm", conclusion: "failure", recoverable: false },
+    {
+      otherJob: "Notify Windows of published Gateway packages",
+      conclusion: "failure",
+      recoverable: true,
+    },
+    {
+      otherJob: "Notify Windows of published Gateway packages",
+      conclusion: "timed_out",
+      recoverable: true,
+    },
+    {
+      otherJob: "Notify Windows of published Gateway packages",
+      conclusion: "cancelled",
+      recoverable: true,
+    },
+  ])(
+    "recovers delayed registry readback with $otherJob / $conclusion only when recoverable=$recoverable",
+    ({ otherJob, conclusion, recoverable }) => {
       const jobs = [
         { conclusion: "success", name: "validate_publish_request", steps: [] },
         {
@@ -105,10 +125,10 @@ describe("openclaw npm resume run identity", () => {
             { conclusion: "failure", name: "Verify extended-stable registry readback" },
           ],
         },
-        ...(otherFailure ? [{ conclusion: "failure", name: "unexpected_failure", steps: [] }] : []),
+        ...(otherJob ? [{ conclusion, name: otherJob, steps: [] }] : []),
       ];
       const runGh = publicationRun({ conclusion: "failure" }, true, {}, jobs);
-      if (otherFailure) {
+      if (!recoverable) {
         expect(() =>
           validateOpenClawNpmResumeRun(
             fixture({

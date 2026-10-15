@@ -186,7 +186,15 @@ export function isRecoverableOpenClawNpmRegistryReadbackFailure(jobs: unknown): 
   return (
     publishJobs.length === 1 &&
     records.every(
-      (job) => job === publishJob || job.conclusion === "success" || job.conclusion === "skipped",
+      (job) =>
+        job === publishJob ||
+        job.conclusion === "success" ||
+        job.conclusion === "skipped" ||
+        // Optional post-publication delivery must not prevent npm readback recovery.
+        (job.name === "Notify Windows of published Gateway packages" &&
+          (job.conclusion === "failure" ||
+            job.conclusion === "timed_out" ||
+            job.conclusion === "cancelled")),
     ) &&
     steps.some((step) => step.name === "Publish" && step.conclusion === "success") &&
     failedSteps.length === 1 &&
