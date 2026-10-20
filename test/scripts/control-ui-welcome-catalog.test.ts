@@ -125,7 +125,8 @@ it("delivers current web copy and translation fallbacks through the installed ca
     expect(german.suggestions[0]?.displayText).toBe("Translated capability prompt");
     expect(german.suggestions.at(-1)?.sendText).toBe("Inspect the current Gateway health");
     expect((await welcome("zh-Hant-CN")).resolvedLocale).toBe("zh-TW");
-    expect((await welcome("sv-SE")).resolvedLocale).toBe("en");
+    expect((await welcome("sv-SE")).resolvedLocale).toBe("sv");
+    expect((await welcome("zz-ZZ")).resolvedLocale).toBe("en");
     suggestions.checkSystemHealth = originalHealth;
     expect(() =>
       writeControlUiWelcomeCatalog({ rootDir: installedRoot.path, check: true }),

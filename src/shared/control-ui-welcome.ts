@@ -8,17 +8,18 @@ const suggestionIds = [
   "checkSystemHealth",
 ] as const;
 
-export function resolveControlUiWelcomeSuggestions(translate: (key: string) => string) {
-  return suggestionIds.map((id) => {
-    const text = translate(`chat.welcome.suggestions.${id}`);
-    return { id, displayText: text, sendText: text };
-  });
-}
+export const CONTROL_UI_WELCOME_SUGGESTIONS = suggestionIds.map((id) => ({
+  id,
+  translationKey: `chat.welcome.suggestions.${id}`,
+}));
 
 export function resolveControlUiWelcomeContent(translate: (key: string) => string) {
   return {
     hint: translate(CONTROL_UI_WELCOME_HINT_KEY),
     recentChatsLabel: translate(CONTROL_UI_WELCOME_RECENT_CHATS_KEY),
-    suggestions: resolveControlUiWelcomeSuggestions(translate),
+    suggestions: CONTROL_UI_WELCOME_SUGGESTIONS.map(({ id, translationKey }) => {
+      const text = translate(translationKey);
+      return { id, displayText: text, sendText: text };
+    }),
   };
 }

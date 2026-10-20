@@ -32,8 +32,13 @@ vi.mock("../infra/tailnet.js", async () => {
   };
 });
 
+// mock-isolation: DNS fixtures use empty config without loading operator state.
 vi.mock("../config/config.js", async () => {
-  return { getRuntimeConfig: () => ({}) };
+  return {
+    getRuntimeConfig: () => ({}),
+    loadConfig: () => ({}),
+    captureRuntimeConfigAsyncReader: () => async () => ({}),
+  };
 });
 
 import { Command } from "commander";
@@ -106,6 +111,35 @@ describe("dns-cli probe bounds", () => {
       expect(call[2]?.timeout).toBeUndefined();
     }
   });
+
+  it.each([true, false])(
+    "finishes setup for an existing Corefile with the import already present: %s",
+    async (hasImport) => {
+      const etcDir = path.join(brewPrefix, "etc", "coredns");
+      const importGlob = path.join(etcDir, "conf.d", "*.server");
+      const corefilePath = path.join(etcDir, "Corefile");
+      const original = `.:53 {\n  errors\n}\n${hasImport ? `import ${importGlob}\n` : ""}`;
+      fs.mkdirSync(etcDir, { recursive: true });
+      fs.writeFileSync(corefilePath, original);
+
+      await runDnsSetupApply();
+
+      expect(fs.readFileSync(corefilePath, "utf-8")).toBe(
+        hasImport ? original : `.:53 {\n  errors\n}\n\nimport ${importGlob}\n`,
+      );
+      const serverPath = path.join(etcDir, "conf.d", "openclaw.internal.server");
+      const server = fs.readFileSync(serverPath, "utf-8");
+      expect(server).toContain("openclaw.internal:53 {");
+      expect(server).toContain("  bind 100.64.0.1");
+      expect(server).toContain(`  file ${testState.zonePath} {`);
+      expect(spawnSyncMock).toHaveBeenCalledWith(
+        "sudo",
+        ["brew", "services", "restart", "coredns"],
+        expect.objectContaining({ stdio: "inherit" }),
+      );
+    },
+  );
+
   it("names the deadline and signal when the brew prefix probe times out", async () => {
     spawnSyncMock.mockImplementation((cmd: string, args: string[]) =>
       cmd === "brew" && args[0] === "--prefix"

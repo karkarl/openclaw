@@ -8,7 +8,7 @@ import {
   type ControlUiWelcomeGetResult,
 } from "../../packages/gateway-protocol/src/schema/control-ui-welcome.js";
 import { resolveOpenClawPackageRoot } from "../infra/openclaw-root.js";
-import { resolveControlUiLocale } from "../shared/control-ui-locale.js";
+import { DEFAULT_LOCALE, resolveNavigatorLocale } from "../shared/control-ui-locale.js";
 import { createLazyPromise } from "../shared/lazy-promise.js";
 
 const validateCatalog = lazyCompile(
@@ -30,21 +30,18 @@ const loadCatalog = createLazyPromise(async () => {
   const catalog: unknown = JSON.parse(
     await readFile(path.join(root, "dist/control-ui-welcome.json"), "utf8"),
   );
-  if (!validateCatalog(catalog) || !Object.hasOwn(catalog.locales, "en")) {
+  if (!validateCatalog(catalog) || !Object.hasOwn(catalog.locales, DEFAULT_LOCALE)) {
     throw new Error("Invalid OpenClaw welcome catalog. Rebuild or reinstall OpenClaw.");
   }
   return catalog;
 });
 
 export async function getControlUiWelcome(
-  requestedLocale = "en",
+  requestedLocale: string = DEFAULT_LOCALE,
 ): Promise<ControlUiWelcomeGetResult> {
   const catalog = await loadCatalog();
-  const resolvedLocale = resolveControlUiLocale(
-    requestedLocale,
-    Object.keys(catalog.locales),
-    "en",
-  );
+  const locale = resolveNavigatorLocale(requestedLocale);
+  const resolvedLocale = Object.hasOwn(catalog.locales, locale) ? locale : DEFAULT_LOCALE;
   return {
     version: 1,
     requestedLocale,

@@ -1,9 +1,7 @@
-import { resolveControlUiLocale } from "../../../../src/shared/control-ui-locale.ts";
+import { DEFAULT_LOCALE, type Locale } from "../../../../src/shared/control-ui-locale.ts";
 import type { TranslationMap } from "./types.ts";
 
 type LocaleModule = Record<string, TranslationMap>;
-
-export const DEFAULT_LOCALE = "en";
 
 const LAZY_LOCALE_REGISTRY = {
   "zh-CN": () => import("../locales/zh-CN.ts"),
@@ -26,21 +24,8 @@ const LAZY_LOCALE_REGISTRY = {
   nl: () => import("../locales/nl.ts"),
   fa: () => import("../locales/fa.ts"),
   ru: () => import("../locales/ru.ts"),
-} satisfies Record<string, () => Promise<LocaleModule>>;
-type LazyLocale = keyof typeof LAZY_LOCALE_REGISTRY;
-export type Locale = typeof DEFAULT_LOCALE | LazyLocale;
-// SAFETY: The record contract guarantees every own key is a LazyLocale.
-const LAZY_LOCALES = Object.keys(LAZY_LOCALE_REGISTRY) as LazyLocale[];
-
-export const SUPPORTED_LOCALES: ReadonlyArray<Locale> = [DEFAULT_LOCALE, ...LAZY_LOCALES];
-
-export function isSupportedLocale(value: string | null | undefined): value is Locale {
-  return SUPPORTED_LOCALES.some((locale) => locale === value);
-}
-
-export function resolveNavigatorLocale(browserLanguage: string): Locale {
-  return resolveControlUiLocale(browserLanguage, SUPPORTED_LOCALES, DEFAULT_LOCALE);
-}
+  sv: () => import("../locales/sv.ts"),
+} satisfies Record<Exclude<Locale, typeof DEFAULT_LOCALE>, () => Promise<LocaleModule>>;
 
 export async function loadLazyLocaleTranslation(locale: Locale): Promise<TranslationMap | null> {
   if (locale === DEFAULT_LOCALE) {

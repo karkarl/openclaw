@@ -11,6 +11,7 @@ import type { DeviceIdentity } from "../infra/device-identity.js";
 import { deriveCanonicalEd25519PrivateKeyRaw } from "../infra/ed25519-signature.js";
 import { pruneMapToMaxSize } from "../infra/map-size.js";
 import { registerSecretValueForRedaction } from "../logging/secret-redaction-registry.js";
+import { getOrCreateWeakOwnerMap } from "../shared/weak-owner-map.js";
 
 const PUBLIC_SESSION_TOKEN_PREFIX = "v1.";
 const PUBLIC_SESSION_TOKEN_CIPHER = "aes-256-gcm";
@@ -190,6 +191,7 @@ function createPublicSessionShareTokenCodec(
 
 const codecsByDatabasePath = new Map<string, PublicSessionShareTokenCodec>();
 const missingIdentityDatabasePaths = new Map<string, true>();
+const previewTokens = new WeakMap<PublicSessionShareTokenCodec, Map<string, string>>();
 
 function cacheCodec(databasePath: string, identity: DeviceIdentity): PublicSessionShareTokenCodec {
   const cached = codecsByDatabasePath.get(databasePath);
@@ -269,4 +271,23 @@ export async function resolvePublicSessionShareToken(
       })
     )?.resolve(token) ?? null
   );
+}
+
+/** Public readers may reuse the installation identity but must never create it. */
+export async function mintExistingPublicSessionShareToken(
+  locator: PublicSessionShareLocator,
+): Promise<string | undefined> {
+  const codec = await resolveProcessCodec({ create: false });
+  if (!codec) {
+    return undefined;
+  }
+  const tokens = getOrCreateWeakOwnerMap(previewTokens, codec);
+  const key = JSON.stringify(locator);
+  let token = tokens.get(key);
+  if (!token) {
+    token = codec.mint(locator);
+    pruneMapToMaxSize(tokens, 127);
+    tokens.set(key, token);
+  }
+  return token;
 }
