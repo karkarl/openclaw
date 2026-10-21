@@ -1,11 +1,11 @@
 import { resolveCronDeliveryPlan } from "../delivery-plan.js";
 import { isCronTimeoutErrorText } from "../execution-error-constants.js";
 import { type CronRetryOn, resolveCronExecutionRetryHint } from "../retry-hint.js";
+import { createCronSourceIdentity } from "../source-schedule.js";
 import {
   CRON_DELIVERY_REPAIR_REQUIRED_MESSAGE,
   hasCanonicalCronDeliveryMode,
 } from "../store/delivery-codec.js";
-import { createCronStreamSourceIdentity } from "../stream-schedule.js";
 import type {
   CronJob,
   CronDeliveryTrace,
@@ -13,6 +13,7 @@ import type {
   CronResolvedDeliveryState,
   CronRunErrorClassification,
   CronRunStatus,
+  CronTriggerEvalOutcome,
 } from "../types.js";
 import {
   DEFAULT_ERROR_BACKOFF_SCHEDULE_MS,
@@ -20,13 +21,7 @@ import {
   HEARTBEAT_SKIP_DISABLED,
   resolveNextRunAtMsOrDisable,
 } from "./jobs-scheduling.js";
-import type {
-  CronJobPolicyContext,
-  CronServiceState,
-  CronSystemEventEnqueueResult,
-  DeferredCronNotifications,
-} from "./state.js";
-import type { CronTriggerEvalOutcome } from "./timer-execution-timeout.js";
+import type { CronJobPolicyContext, DeferredCronNotifications } from "./state.js";
 
 /** Default max retries for cron jobs on transient errors (#24355). */
 const DEFAULT_MAX_TRANSIENT_RETRIES = 3;
@@ -36,7 +31,7 @@ type TransientCronRetryDecision = {
   consecutiveErrors: number;
   retryCategory?: CronRetryOn;
   backoffMs?: number;
-  reason: "transient retry" | "max retries exhausted" | "permanent error";
+  reason: "transient retry" | "max retries exhausted" | "permanent error" | "aborted";
 };
 
 type DisabledHeartbeatOneShotRetryDecision = {
@@ -44,11 +39,6 @@ type DisabledHeartbeatOneShotRetryDecision = {
   consecutiveSkipped: number;
   backoffMs?: number;
   reason: "disabled heartbeat retry" | "max retries exhausted";
-};
-
-type QueuedSystemEventHandle = {
-  accepted: boolean;
-  remove?: () => boolean | void;
 };
 
 /** Persists non-busy trigger evaluation state without touching payload-run history. */
@@ -92,7 +82,7 @@ export function applyTriggerRunResult(
     result.status === "ok"
   ) {
     if (job.schedule.kind === "stream") {
-      job.state.streamSourceIdentity = createCronStreamSourceIdentity();
+      job.state.streamSourceIdentity = createCronSourceIdentity();
     }
     job.enabled = false;
     job.state.nextRunAtMs = undefined;
@@ -151,6 +141,13 @@ export function resolveTransientCronRetryDecision(params: {
   executionStarted?: boolean;
   consecutiveErrors: number | undefined;
 }): TransientCronRetryDecision {
+  if (params.errorClassification?.kind === "aborted") {
+    return {
+      retryable: false,
+      consecutiveErrors: params.consecutiveErrors ?? 0,
+      reason: "aborted",
+    };
+  }
   if (params.errorClassification?.kind === "permanent") {
     return {
       retryable: false,
@@ -216,39 +213,6 @@ export function resolveDisabledHeartbeatOneShotRetryDecision(params: {
     ),
     reason: "disabled heartbeat retry",
   };
-}
-
-export function normalizeQueuedSystemEventHandle(
-  result: CronSystemEventEnqueueResult,
-): QueuedSystemEventHandle {
-  if (typeof result === "boolean") {
-    return { accepted: result };
-  }
-  if (result && typeof result === "object") {
-    return {
-      accepted: result.accepted !== false,
-      ...(result.remove ? { remove: result.remove } : {}),
-    };
-  }
-  return { accepted: true };
-}
-
-export function removeQueuedSystemEventHandle(
-  state: CronServiceState,
-  job: CronJob,
-  queued: QueuedSystemEventHandle,
-) {
-  if (!queued.accepted || !queued.remove) {
-    return;
-  }
-  try {
-    queued.remove();
-  } catch (err) {
-    state.deps.log.warn(
-      { jobId: job.id, jobName: job.name, err },
-      "cron: failed to remove undelivered main-session system event",
-    );
-  }
 }
 
 export function shouldRetryDisabledHeartbeatOneShot(

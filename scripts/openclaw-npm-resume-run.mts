@@ -186,18 +186,12 @@ export function isRecoverableOpenClawNpmRegistryReadbackFailure(jobs: unknown): 
   return (
     publishJobs.length === 1 &&
     records.every(
-      (job) =>
-        job === publishJob ||
-        job.conclusion === "success" ||
-        job.conclusion === "skipped" ||
-        // Optional post-publication delivery must not prevent npm readback recovery.
-        (job.name === "Notify Windows of published Gateway packages" &&
-          (job.conclusion === "failure" ||
-            job.conclusion === "timed_out" ||
-            job.conclusion === "cancelled")),
+      (job) => job === publishJob || job.conclusion === "success" || job.conclusion === "skipped",
     ) &&
     steps.some((step) => step.name === "Publish" && step.conclusion === "success") &&
     failedSteps.length === 1 &&
+    // Historical protected publishers can fail after npm accepted the bytes.
+    // Keep their recovery path even though new publishers leave readback to the parent.
     failedSteps[0]?.name === "Verify extended-stable registry readback"
   );
 }
