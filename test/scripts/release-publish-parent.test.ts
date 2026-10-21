@@ -318,18 +318,21 @@ describe("optional Gateway publication notification", () => {
     { workflow: coreNpm, failed: "unknown_job", conclusion: "failure" },
     { workflow: "plugin-npm-release.yml", failed: notificationName, conclusion: "failure" },
     { workflow: coreNpm, failed: notificationName, conclusion: "action_required" },
-  ])("still rejects $workflow / $failed / $conclusion", ({ workflow, failed, conclusion }) => {
-    const result = childFixture({
-      91: [
-        {
-          status: "in_progress",
-          jobs: [job(notificationName, "failure"), job(failed, conclusion)],
-        },
-      ],
-    }).run(source + `wait_for_run ${workflow} 91 "$PARENT_WORKFLOW_SHA" "" false`);
-    expect(result.status, result.stderr).toBe(1);
-    expect(result.stderr).toContain("has failed jobs");
-  });
+  ])(
+    "still rejects $workflow / $failed / $conclusion",
+    ({ workflow: workflowName, failed, conclusion }) => {
+      const result = childFixture({
+        91: [
+          {
+            status: "in_progress",
+            jobs: [job(notificationName, "failure"), job(failed, conclusion)],
+          },
+        ],
+      }).run(source + `wait_for_run ${workflowName} 91 "$PARENT_WORKFLOW_SHA" "" false`);
+      expect(result.status, result.stderr).toBe(1);
+      expect(result.stderr).toContain("has failed jobs");
+    },
+  );
 
   it("does not accept a cancelled overall npm run", () => {
     const result = childFixture({
