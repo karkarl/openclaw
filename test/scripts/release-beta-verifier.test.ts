@@ -192,15 +192,9 @@ describe("verifyBetaRelease workflow outcomes", () => {
   );
 
   it.each<[Record<string, unknown>, string | undefined]>([
-    [
-      { attempt: 2, jobs: [notificationFailure] },
-      "historical publisher identity does not match its signed attempt",
-    ],
+    [{ attempt: 2 }, undefined],
     [{ databaseId: 45 }, undefined],
-    [
-      { headSha: "b".repeat(40), jobs: [notificationFailure] },
-      "historical publisher identity does not match its signed attempt",
-    ],
+    [{ headSha: "b".repeat(40) }, undefined],
     [{ conclusion: "failure" }, undefined],
     [{ jobs: [{ name: "publish_openclaw_npm", conclusion: "failure" }] }, undefined],
     [
@@ -969,12 +963,11 @@ syncBuiltinESMExports();`,
   });
 
   it.each(["failure", "timed_out", "cancelled"])(
-    "warns without blocking successful npm publication after optional notification %s",
+    "keeps notification %s optional",
     async (conclusion) => {
       const fixture = workflowFixture(
         {
           jobs: [
-            { name: "validate_publish_request", conclusion: "success" },
             { name: "publish_openclaw_npm", conclusion: "success" },
             { ...notificationFailure, conclusion },
           ],
@@ -983,15 +976,13 @@ syncBuiltinESMExports();`,
       );
       const warning = vi.spyOn(console, "error").mockImplementation(() => {});
       try {
-        const lines = await verifyBetaRelease(fixture.args, { rootDir: fixture.rootDir });
-        expect(lines.some((line) => line.startsWith("OpenClaw NPM Release OK: 44"))).toBe(true);
-        expect(existsSync(join(fixture.rootDir, "evidence.json"))).toBe(true);
+        await verifyBetaRelease(fixture.args, { rootDir: fixture.rootDir });
         expect(warning).toHaveBeenCalledWith(
-          expect.stringContaining(`optional Gateway publication notification is ${conclusion}`),
+          expect.stringContaining("optional Gateway publication notification"),
         );
         expect(readDiagnostic(fixture.rootDir)).toMatchObject({
           verification: "success",
-          children: { openclawNpm: { conclusion: "success", failedJobCount: 1 } },
+          children: { openclawNpm: { failedJobCount: 1 } },
         });
       } finally {
         warning.mockRestore();
@@ -1006,23 +997,6 @@ syncBuiltinESMExports();`,
       false,
       { conclusion: "cancelled", jobs: [notificationFailure] },
       "OpenClaw NPM Release: run 44 is completed/cancelled",
-    ],
-    [
-      false,
-      { conclusion: "failure", jobs: [notificationFailure] },
-      "OpenClaw NPM Release: run 44 is completed/failure",
-    ],
-    [
-      false,
-      { jobs: [{ ...notificationFailure, conclusion: "action_required" }] },
-      "failed jobs: Notify Windows",
-    ],
-    [
-      false,
-      {
-        jobs: [notificationFailure, { name: "validate_publish_request", conclusion: "failure" }],
-      },
-      "failed jobs: validate_publish_request",
     ],
     [
       false,

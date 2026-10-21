@@ -279,69 +279,6 @@ npm lock; `parent` identifies the nearest enclosing non-bundled package whose
 rejects missing or unverifiable carriers and preserves the lock payload. The
 Markdown table counts bundled dependencies per package and includes their total.
 
-## Gateway package publication notifications
-
-After a successful npm write, OpenClaw records the exact tarball identity for
-`openclaw` or `@openclaw/gateway-protocol`. A separate, non-blocking job in
-OpenClaw NPM Release sends `repository_dispatch` to
-`openclaw/openclaw-windows-node`. It never runs Windows validation or AI as an
-upstream build check. Ordinary upstream CI does not send notifications.
-
-Each newly published package has its own event. The notification uses that
-package's version, not the Gateway wire-protocol integer or a sibling's version.
-An already-published package reused by a release does not generate a new event.
-A successful protocol publication remains eligible for notification if a later
-core publication fails. Cancellation or a missing publication record can still
-prevent delivery.
-
-The event type is `gateway-protocol-published`. Its `client_payload` has exactly
-these fields:
-
-| Field               | Value                                                                        |
-| ------------------- | ---------------------------------------------------------------------------- |
-| `schema_version`    | `1`                                                                          |
-| `package_name`      | `openclaw` or `@openclaw/gateway-protocol`                                   |
-| `package_version`   | Exact version from the published tarball; no tags, ranges, or build metadata |
-| `package_integrity` | Canonical npm SHA512 SRI matching the published tarball                      |
-| `source_repository` | `openclaw/openclaw`                                                          |
-| `source_commit`     | Full lowercase 40-character release-source Git SHA, not the tooling SHA      |
-
-The sender checks exact-version registry metadata against the recorded tarball
-digest before sending. `source_commit` is the sender-declared release checkout,
-bound to the prepared tarball by upstream preflight checks; the notification
-itself is not independent proof that this source produced the package. Registry
-SLSA can identify the publication tooling commit instead of the release checkout.
-Downstream consumers must verify that distinction before deriving released-source
-inventories or enabling automated implementation handoff.
-
-A GitHub HTTP 204 confirms dispatch acceptance, not downstream validation or
-activated remediation. Windows nightly monitoring remains reconciliation and an
-early warning for unpublished `main`; runtime npm-`latest` selection and pinning
-policy are unchanged.
-
-The sender reuses the existing **ClawSweeper** GitHub App and upstream Actions
-secret `CLAWSWEEPER_APP_PRIVATE_KEY`; no new App, Actions variable, or secret is
-required. Its existing Windows repository installation must grant **Contents:
-write** and the implicit **Metadata: read** permission. `repository_dispatch`
-does not require Actions write. The notification job requests a fresh installation
-token scoped only to `openclaw/openclaw-windows-node` and Contents write, even
-when the App serves other repositories or has additional permissions. The token
-action revokes that token after the job. Do not reuse Windows
-`COPILOT_GITHUB_TOKEN`, broaden `GITHUB_TOKEN`, or expose the App key to the npm
-publish step. The receiver workflow must be on its default branch before GitHub
-can deliver this event.
-
-Missing credentials, registry propagation/readback failures, or rejected and
-ambiguous dispatches produce job warnings and a run summary without rolling back
-npm or failing an otherwise successful release. The release monitor and final
-verifier treat only this named notification job as optional; all other job failures
-and an unsuccessful overall run still block release completion. Notification
-bookkeeping failure also warns without stopping subsequent package publication. There is no automatic
-POST retry. Inspect the notification job and Windows receiver runs before
-recovery; do not republish npm to retry a notification. Nightly reconciliation
-covers missed events. Activation is not proven until an approved publication
-records HTTP 204 and the receiver accepts the matching immutable package identity.
-
 ## Maintainer procedures
 
 Release preparation, publishing commands, approvals, and recovery live in the
