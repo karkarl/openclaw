@@ -319,18 +319,17 @@ activated remediation. Windows nightly monitoring remains reconciliation and an
 early warning for unpublished `main`; runtime npm-`latest` selection and pinning
 policy are unchanged.
 
-To activate the sender, an administrator must create a dedicated GitHub App with
-repository **Contents: write** and the implicit **Metadata: read** permission.
-Install it only on `openclaw/openclaw-windows-node`. `repository_dispatch` needs
-Contents write; Actions write is not required. Set the upstream repository
-Actions variable `GATEWAY_PROTOCOL_NOTIFY_APP_ID` to its App ID and Actions
-secret `GATEWAY_PROTOCOL_NOTIFY_APP_PRIVATE_KEY` to its private key. Restrict
-any organization-level secret to `openclaw/openclaw`. The workflow requests an
-installation token scoped to that single receiver and Contents write, only in
-the notification job; the token action revokes it after the job. Do not reuse
-Windows `COPILOT_GITHUB_TOKEN`, broaden `GITHUB_TOKEN`, or expose sender credentials
-to the npm publish step. The receiver workflow must be on its default branch
-before GitHub can deliver this event.
+The sender reuses the existing **ClawSweeper** GitHub App and upstream Actions
+secret `CLAWSWEEPER_APP_PRIVATE_KEY`; no new App, Actions variable, or secret is
+required. Its existing Windows repository installation must grant **Contents:
+write** and the implicit **Metadata: read** permission. `repository_dispatch`
+does not require Actions write. The notification job requests a fresh installation
+token scoped only to `openclaw/openclaw-windows-node` and Contents write, even
+when the App serves other repositories or has additional permissions. The token
+action revokes that token after the job. Do not reuse Windows
+`COPILOT_GITHUB_TOKEN`, broaden `GITHUB_TOKEN`, or expose the App key to the npm
+publish step. The receiver workflow must be on its default branch before GitHub
+can deliver this event.
 
 Missing credentials, registry propagation/readback failures, or rejected and
 ambiguous dispatches produce job warnings and a run summary without rolling back

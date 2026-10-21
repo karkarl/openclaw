@@ -1029,8 +1029,8 @@ jobs:
         id: notification_token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
-          app-id: ${{ vars.GATEWAY_PROTOCOL_NOTIFY_APP_ID }}
-          private-key: ${{ secrets.GATEWAY_PROTOCOL_NOTIFY_APP_PRIVATE_KEY }}
+          client-id: Iv23liOECG0slfuhz093
+          private-key: ${{ secrets.CLAWSWEEPER_APP_PRIVATE_KEY }}
           owner: openclaw
           repositories: openclaw-windows-node
           permission-contents: write
@@ -1044,4 +1044,4 @@ jobs:
         if: ${{ failure() }}
         run: |
           echo "::warning::Gateway publication notification failed or is unconfirmed. npm publication remains complete. Inspect this job and Windows receiver runs; nightly reconciliation remains active."
-          echo "- Gateway publication notification: failed or unconfirmed. Do not republish npm or roll back a published version to retry notification. Check the dedicated GitHub App configuration and exact registry metadata." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Gateway publication notification: failed or unconfirmed. Do not republish npm or roll back a published version to retry notification. Check the existing ClawSweeper App installation and exact registry metadata." >> "$GITHUB_STEP_SUMMARY"

@@ -144,9 +144,7 @@ export async function notifyPublications(publications, token, summaryPath) {
     throw new Error("Duplicate gateway publication package.");
   }
   if (typeof token !== "string" || !token.trim()) {
-    throw new Error(
-      "Missing dedicated gateway publication GitHub App token; no notification sent.",
-    );
+    throw new Error("Missing gateway publication GitHub App token; no notification sent.");
   }
   const failures = [];
   for (const publication of publications) {

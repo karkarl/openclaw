@@ -124,10 +124,10 @@ describe("gateway publication notification", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("refuses missing dedicated auth rather than falling back to ambient credentials", async () => {
+  it("refuses missing App auth rather than falling back to ambient credentials", async () => {
     const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
-    await expect(notifyPublications([publication()], "")).rejects.toThrow("Missing dedicated");
+    await expect(notifyPublications([publication()], "")).rejects.toThrow("GitHub App token");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -310,12 +310,12 @@ describe("publication workflow notification boundary", () => {
     });
     const tokenStep = notify.steps.find((step) => step.id === "notification_token");
     expect(tokenStep?.with).toEqual({
-      "app-id": "${{ vars.GATEWAY_PROTOCOL_NOTIFY_APP_ID }}",
-      "private-key": "${{ secrets.GATEWAY_PROTOCOL_NOTIFY_APP_PRIVATE_KEY }}",
+      "client-id": "Iv23liOECG0slfuhz093",
+      "private-key": "${{ secrets.CLAWSWEEPER_APP_PRIVATE_KEY }}",
       owner: "openclaw",
       repositories: "openclaw-windows-node",
       "permission-contents": "write",
     });
-    expect(JSON.stringify(publisher)).not.toContain("GATEWAY_PROTOCOL_NOTIFY_APP_PRIVATE_KEY");
+    expect(JSON.stringify(publisher)).not.toContain("CLAWSWEEPER_APP_PRIVATE_KEY");
   });
 });
