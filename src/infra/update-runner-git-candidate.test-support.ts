@@ -381,6 +381,8 @@ export async function writeRuntime(directory: string, sha: string, store: string
       .map((specifier) => `console.log(require(${JSON.stringify(specifier)}));`)
       .join("\n"),
     "dist/build-info.json": JSON.stringify({ commit: sha, buildId: sha }),
+    "dist/control-ui-welcome.json":
+      '{"version":1,"locales":{"en":{"hint":"Fixture welcome","recentChatsLabel":"Fixture chats","suggestions":[]}}}\n',
     "dist/.buildstamp": JSON.stringify({ head: sha }),
     "dist/.runtime-postbuildstamp": JSON.stringify({ head: sha }),
     "dist/control-ui/index.html": "ready",

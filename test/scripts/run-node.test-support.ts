@@ -177,6 +177,8 @@ export async function writeRuntimePostBuildScaffold(tmp: string): Promise<void> 
     [DIST_PLUGIN_SDK_CORE]: "export const core = true;\n",
     [DIST_CHANNEL_CATALOG]: '{"entries":[]}\n',
     [DIST_BUILD_INFO]: '{"buildId":"test-build"}\n',
+    "dist/control-ui-welcome.json":
+      '{"version":1,"locales":{"en":{"hint":"Fixture welcome","recentChatsLabel":"Fixture chats","suggestions":[]}}}\n',
     [DIST_LEGACY_UPDATE_NODE_RUNNER_COMPAT]: "export function resolveNodeRunner() {}\n",
     [DIST_LEGACY_UPDATE_NODE_RUNNER_COMPAT_ALT]: "export function resolveNodeRunner() {}\n",
     [DIST_LEGACY_UPDATE_NODE_RUNNER_COMPAT_0229A108]: "export function resolveNodeRunner() {}\n",
